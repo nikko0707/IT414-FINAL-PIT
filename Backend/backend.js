@@ -1,19 +1,27 @@
 /*
- * BACKEND SERVER (Node.js)
- * This code REPLACES your 'process_rfid.php' file.
- * It connects to your MQTT broker and your MySQL database.
- *
- * It LISTENS for scans on 'RFID_SCAN'.
- * It PUBLISHES results on 'RFID_LOGIN'.
+ * BACKEND SERVER (v2) - The COMPLETE Server
+ * This file now does everything:
+ * 1. MQTT for ESP32s
+ * 2. MySQL for Database
+ * 3. Express API for React (to get old logs)
+ * 4. Socket.io for React (for real-time updates)
  */
 
+// --- New Imports ---
+const http = require('http'); // To create the web server
+const express = require('express');
+const { Server } = require('socket.io');
+const cors = require('cors'); // To prevent browser errors
+
+// --- Old Imports ---
 const mqtt = require('mqtt');
 const mysql = require('mysql');
 
 // --- Configs ---
-const MQTT_BROKER = 'mqtt://YOUR_MQTT_BROKER_IP'; // <-- Use 'mqtt://'
-const MQTT_TOPIC_SCAN = 'RFID_SCAN';       // Listen for scans here
-const MQTT_TOPIC_LOGIN = 'RFID_LOGIN';     // Publish results here [cite: 49]
+const MQTT_BROKER = 'mqtt://YOUR_MQTT_BROKER_IP'; // <-- Set this
+const MQTT_TOPIC_SCAN = 'RFID_SCAN';
+const MQTT_TOPIC_LOGIN = 'RFID_LOGIN';
+const WEB_SERVER_PORT = 3001; // Your React app will talk to this port
 
 const DB_CONFIG = {
   host: 'localhost',
@@ -22,131 +30,147 @@ const DB_CONFIG = {
   database: 'It414_db_BLOCK30'
 };
 
-// --- Create Connections ---
+// --- Create All Servers ---
+const app = express();         // Create Express web app
+app.use(cors());               // Use CORS
+const server = http.createServer(app); // Create HTTP server
+const io = new Server(server, { // Attach Socket.io for real-time
+  cors: {
+    origin: "*", // Allow all connections
+  }
+});
+
 let db;
 const mqttClient = mqtt.connect(MQTT_BROKER);
 
-// --- Database Connection (with auto-reconnect) ---
+// --- Database Connection (Same as before) ---
 function handleDbConnection() {
   db = mysql.createConnection(DB_CONFIG);
-
   db.connect(err => {
     if (err) {
       console.error('Error connecting to DB:', err);
-      setTimeout(handleDbConnection, 2000); // Try again
+      setTimeout(handleDbConnection, 2000);
     } else {
       console.log('Successfully connected to MySQL database.');
     }
   });
-
   db.on('error', err => {
     console.error('DB error:', err);
-    if (err.code === 'PROTOCOL_CONNECTION_LOST') {
-      handleDbConnection(); // Reconnect
-    } else {
-      throw err;
-    }
+    if (err.code === 'PROTOCOL_CONNECTION_LOST') handleDbConnection();
+    else throw err;
   });
 }
+handleDbConnection();
 
-handleDbConnection(); // Start DB connection
-
-// --- MQTT Logic ---
-
-// When MQTT connects
+// --- MQTT Logic (Same as before) ---
 mqttClient.on('connect', () => {
   console.log(`Connected to MQTT broker at ${MQTT_BROKER}`);
-  // Subscribe to the scanner's topic
   mqttClient.subscribe(MQTT_TOPIC_SCAN, (err) => {
-    if (!err) {
-      console.log(`Subscribed to topic: ${MQTT_TOPIC_SCAN}`);
-    }
+    if (!err) console.log(`Subscribed to topic: ${MQTT_TOPIC_SCAN}`);
   });
 });
 
-// When a message arrives from the scanner
 mqttClient.on('message', (topic, message) => {
   if (topic === MQTT_TOPIC_SCAN) {
     const rfid_data = message.toString();
     console.log(`Received scan: ${rfid_data}`);
-    // Run your database logic
-    processRfidData(rfid_data);
+    processRfidData(rfid_data); // Run your logic
   }
 });
 
-// This is your PHP logic, translated to JavaScript
+// --- Main Database Logic (MODIFIED to push updates) ---
 function processRfidData(rfid_data) {
   const sql_check_reg = "SELECT rfid_status FROM rfid_reg WHERE rfid_data = ?";
-  
   db.query(sql_check_reg, [rfid_data], (err, results) => {
     if (err) return console.error('DB query error:', err);
 
-    let signal_to_publish = '0'; // Default is '0' (fail/off)
-
+    let signal_to_publish = '0';
     if (results.length > 0) {
       // --- RFID IS REGISTERED ---
       const current_status = results[0].rfid_status;
-      const new_status = (current_status == 1) ? 0 : 1; // Toggle status
-      
-      // The signal to publish is '1' for ON, '0' for OFF
-      signal_to_publish = (new_status == 1) ? '1' : '0'; 
+      const new_status = (current_status == 1) ? 0 : 1;
+      signal_to_publish = (new_status == 1) ? '1' : '0';
 
-      // Update the status in the database
-      const sql_update = "UPDATE rfid_reg SET rfid_status = ? WHERE rfid_data = ?";
-      db.query(sql_update, [new_status, rfid_data]);
-
-      logScan(rfid_data, new_status); // Log the new status
+      db.query("UPDATE rfid_reg SET rfid_status = ? WHERE rfid_data = ?", [new_status, rfid_data]);
+      logScan(rfid_data, new_status, (newLog) => {
+        // *** NEW PART ***
+        // After logging, send the new data to all connected React apps
+        io.emit('new_log', newLog); // Send the new log
+        io.emit('status_update', { rfid: rfid_data, status: new_status }); // Send the new status
+      });
       console.log(`RFID ${rfid_data} found. Toggling to ${new_status}. Publishing: ${signal_to_publish}`);
-
     } else {
-      // --- RFID NOT FOUND ---
-      // Your auto-register logic
-      const sql_check_existing = "SELECT COUNT(*) AS reg_count FROM rfid_reg";
-      db.query(sql_check_existing, (err, count_results) => {
+      // --- RFID NOT FOUND --- (Your auto-register logic)
+      db.query("SELECT COUNT(*) AS reg_count FROM rfid_reg", (err, count_results) => {
         if (err) return console.error('DB query error:', err);
-
         const reg_count = count_results[0].reg_count;
-        if (reg_count == 0) {
-          // Register the card with status 1 (active)
-          const sql_register = "INSERT INTO rfid_reg (rfid_data, rfid_status) VALUES (?, 1)";
-          db.query(sql_register, [rfid_data]);
-          logScan(rfid_data, 1);
-          signal_to_publish = '1'; // Publish '1' since it's now active
+        if (reg_count == 0 || reg_count == 1) { // Your logic to allow 1st or 2nd
+          const new_status = 1;
+          db.query("INSERT INTO rfid_reg (rfid_data, rfid_status) VALUES (?, ?)", [rfid_data, new_status]);
+          logScan(rfid_data, new_status, (newLog) => {
+             // *** NEW PART ***
+            io.emit('new_log', newLog);
+            io.emit('status_update', { rfid: rfid_data, status: new_status });
+          });
+          signal_to_publish = '1';
           console.log(`RFID ${rfid_data} NOT FOUND. Auto-registering. Publishing: ${signal_to_publish}`);
         } else {
-          // Card not found, and table is not empty. Log as failed.
-          logScan(rfid_data, 0);
-          signal_to_publish = '0'; // Publish '0'
+          logScan(rfid_data, 0, (newLog) => io.emit('new_log', newLog)); // Log as failed
+          signal_to_publish = '0';
           console.log(`RFID ${rfid_data} NOT FOUND. Publishing: ${signal_to_publish}`);
         }
-        
-        // Publish the final signal
         publishResult(signal_to_publish);
       });
-      return; // Exit here because the query is async
+      return;
     }
-
-    // Publish the final signal
     publishResult(signal_to_publish);
   });
 }
 
-// Helper function to log every scan
-function logScan(rfid_data, status) {
-  // Uses NOW() for timestamp. Your PHP used DATE_FORMAT, but this is simpler.
+// Helper to log scans (MODIFIED with callback)
+function logScan(rfid_data, status, callback) {
   const sql_log = "INSERT INTO rfid_logs (time_log, rfid_data, rfid_status) VALUES (NOW(), ?, ?)";
-  db.query(sql_log, [rfid_data, status], (err) => {
-    if (err) console.error('Log insert error:', err);
+  db.query(sql_log, [rfid_data, status], (err, result) => {
+    if (err) return console.error('Log insert error:', err);
+    // Get the full log we just inserted
+    db.query("SELECT * FROM rfid_logs WHERE id = ?", [result.insertId], (err, rows) => {
+        if (callback && rows[0]) callback(rows[0]); // Send the new log back
+    });
   });
 }
 
-// Helper function to publish the result
+// Helper to publish (Same as before)
 function publishResult(signal) {
-  mqttClient.publish(MQTT_TOPIC_LOGIN, signal, (err) => {
-    if (err) {
-      console.error('Failed to publish:', err);
-    } else {
-      console.log(`Successfully published '${signal}' to ${MQTT_TOPIC_LOGIN}`);
-    }
-  });
+  mqttClient.publish(MQTT_TOPIC_LOGIN, signal);
 }
+
+// --- NEW API FOR REACT ---
+
+// API Endpoint 1: Gets all registered cards
+app.get('/api/status', (req, res) => {
+  db.query("SELECT * FROM rfid_reg", (err, results) => {
+    if (err) return res.status(500).json({ error: err.message });
+    res.json(results);
+  });
+});
+
+// API Endpoint 2: Gets all the past logs
+app.get('/api/logs', (req, res) => {
+  db.query("SELECT * FROM rfid_logs ORDER BY time_log DESC", (err, results) => {
+    if (err) return res.status(500).json({ error: err.message });
+    res.json(results);
+  });
+});
+
+// API Endpoint 3: Handles the toggle button from React
+app.post('/api/toggle/:rfid', (req, res) => {
+  const rfid_data = req.params.rfid;
+  // We re-use the *same* logic as a physical scan
+  processRfidData(rfid_data);
+  res.json({ message: 'Toggle request received' });
+});
+
+// --- NEW: Start the server ---
+server.listen(WEB_SERVER_PORT, () => {
+  console.log(`Web server listening on http://localhost:${WEB_SERVER_PORT}`);
+});
