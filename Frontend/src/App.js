@@ -128,13 +128,13 @@ function App() {
         
         {/* --- RFID STATUS TABLE --- */}
         <div>
-          <h2 className="text-2xl font-bold mb-4 text-gray-800">RFID Reg</h2>
+          <h2 className="text-2xl font-bold mb-4 text-gray-800">Registered RFID</h2>
           <div className="overflow-x-auto bg-white rounded-lg shadow-lg">
             <table className="w-full border-collapse text-sm">
               <thead className="bg-gray-100 text-gray-700 uppercase text-xs">
                 <tr>
                   <th className="py-3 px-4 text-left">RFID</th>
-                  <th className="py-3 px-4 text-left">Status (1 or 0)</th>
+                  <th className="py-3 px-4 text-left">Status</th>
                   <th className="py-3 px-4 text-center">Toggle</th>
                 </tr>
               </thead>
