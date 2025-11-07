@@ -1,5 +1,5 @@
 /*
- * BACKEND SERVER (v2) - The COMPLETE Server
+ * BACKEND SERVER (v3) - The COMPLETE Server
  * This file now does everything:
  * 1. MQTT for ESP32s
  * 2. MySQL for Database
@@ -18,10 +18,10 @@ const mqtt = require('mqtt');
 const mysql = require('mysql');
 
 // --- Configs ---
-const MQTT_BROKER = 'mqtt://10.56.202.215'; // <-- Set this
+const MQTT_BROKER = 'mqtt://192.168.1.106'; // Morpheus 10.56.202.215 || Estandarte-Ext 192.168.1.106
 const MQTT_TOPIC_SCAN = 'RFID_SCAN';
 const MQTT_TOPIC_LOGIN = 'RFID_LOGIN';
-const WEB_SERVER_PORT = 3000; // Your React app will talk to this port
+const WEB_SERVER_PORT = 3001; // Your React app will talk to this port
 
 const DB_CONFIG = {
   host: 'localhost',
@@ -93,31 +93,42 @@ function processRfidData(rfid_data) {
 
       db.query("UPDATE rfid_reg SET rfid_status = ? WHERE rfid_data = ?", [new_status, rfid_data]);
       logScan(rfid_data, new_status, (newLog) => {
-        // *** NEW PART ***
+        // *** PUSH UPDATE ***
         // After logging, send the new data to all connected React apps
         io.emit('new_log', newLog); // Send the new log
         io.emit('status_update', { rfid: rfid_data, status: new_status }); // Send the new status
       });
       console.log(`RFID ${rfid_data} found. Toggling to ${new_status}. Publishing: ${signal_to_publish}`);
     } else {
-      // --- RFID NOT FOUND --- (Your auto-register logic)
+      // --- RFID NOT FOUND ---
       db.query("SELECT COUNT(*) AS reg_count FROM rfid_reg", (err, count_results) => {
         if (err) return console.error('DB query error:', err);
         const reg_count = count_results[0].reg_count;
-        if (reg_count == 0 || reg_count == 1) { // Your logic to allow 1st or 2nd
+
+        // ++++++++++ THIS IS YOUR NEW LOGIC ++++++++++
+        // This will register a card if the count is 0, 1, or 2.
+        if (reg_count < 3) { // Your logic to allow 3 IDs
+        // ++++++++++++++++++++++++++++++++++++++++++++
+
           const new_status = 1;
           db.query("INSERT INTO rfid_reg (rfid_data, rfid_status) VALUES (?, ?)", [rfid_data, new_status]);
           logScan(rfid_data, new_status, (newLog) => {
-             // *** NEW PART ***
+             // *** PUSH UPDATE ***
             io.emit('new_log', newLog);
-            io.emit('status_update', { rfid: rfid_data, status: new_status });
+            // Also push this new card to the status list
+            db.query("SELECT * FROM rfid_reg WHERE id = (SELECT MAX(id) FROM rfid_reg)", (err, rows) => {
+              if (rows[0]) io.emit('new_status_item', rows[0]);
+            });
           });
           signal_to_publish = '1';
           console.log(`RFID ${rfid_data} NOT FOUND. Auto-registering. Publishing: ${signal_to_publish}`);
         } else {
-          logScan(rfid_data, 0, (newLog) => io.emit('new_log', newLog)); // Log as failed
+          // Now that 3 cards are registered, log all others as failed
+          // +++++ THIS IS YOUR NEW CHANGE +++++
+          logScan(rfid_data, 2, (newLog) => io.emit('new_log', newLog)); // Log as status 2 (Not Found)
+          // +++++++++++++++++++++++++++++++++++
           signal_to_publish = '0';
-          console.log(`RFID ${rfid_data} NOT FOUND. Publishing: ${signal_to_publish}`);
+          console.log(`RFID ${rfid_data} NOT FOUND. Max (3) IDs registered. Publishing: ${signal_to_publish}`);
         }
         publishResult(signal_to_publish);
       });
@@ -148,7 +159,7 @@ function publishResult(signal) {
 
 // API Endpoint 1: Gets all registered cards
 app.get('/api/status', (req, res) => {
-  db.query("SELECT * FROM rfid_reg", (err, results) => {
+  db.query("SELECT * FROM rfid_reg ORDER BY id", (err, results) => {
     if (err) return res.status(500).json({ error: err.message });
     res.json(results);
   });
