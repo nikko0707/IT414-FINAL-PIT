@@ -1,16 +1,16 @@
 import React, { useEffect, useState, useCallback } from "react";
 import io from 'socket.io-client';
 
-// --- CONFIG ---
+
 const API_URL = 'http://localhost:3001';
 const socket = io(API_URL);
 
 function App() {
-  // --- STATE ---
+  
   const [statusList, setStatusList] = useState([]);
   const [logList, setLogList] = useState([]);
 
-  // --- DATA FETCHING ---
+  
   const fetchStatus = useCallback(() => {
     fetch(`${API_URL}/api/status`)
       .then(res => res.json())
@@ -45,13 +45,13 @@ function App() {
       });
   }, []);
 
-  // --- INITIAL LOAD ---
+  
   useEffect(() => {
     fetchStatus();
     fetchLogs();
   }, [fetchStatus, fetchLogs]);
 
-  // --- REAL-TIME REFRESH ---
+  
   useEffect(() => {
     console.log("Setting up socket listeners...");
 
@@ -91,7 +91,7 @@ function App() {
     };
   }, [fetchStatus, fetchLogs]);
 
-  // --- ACTIONS ---
+  
   const handleToggle = (rfid_data) => {
     console.log("Toggling:", rfid_data);
 
@@ -103,19 +103,19 @@ function App() {
       .catch(error => console.error("Error toggling:", error));
   };
 
-  // --- RENDER ---
+  
   return (
     <div className="min-h-screen bg-gray-50 text-gray-900 font-sans">
-      {/* Navbar */}
+      
       <nav className="bg-blue-600 text-white px-6 py-5 flex justify-between items-center shadow-md">
         <h1 className="text-4xl font-extrabold tracking-wide">BSIT IT413</h1>
-        {/* Refresh Button Removed */}
+        
       </nav>
 
-      {/* Main Container */}
+      
       <main className="max-w-7xl mx-auto p-4 md:p-6 grid grid-cols-1 lg:grid-cols-2 gap-6 md:gap-8">
         
-        {/* --- REGISTERED RFID TABLE --- */}
+        
         <div>
           <h2 className="text-2xl font-bold mb-4 text-gray-800">Registered RFID</h2>
           <div className="overflow-x-auto bg-white rounded-lg shadow-lg">
@@ -158,7 +158,7 @@ function App() {
           </div>
         </div>
 
-        {/* --- RFID LOGS TABLE --- */}
+        
         <div>
           <h2 className="text-2xl font-bold mb-4 text-gray-800">RFID Logs</h2>
           <div className="overflow-x-auto bg-white rounded-lg shadow-lg max-h-96 overflow-y-auto">
