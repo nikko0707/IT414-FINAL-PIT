@@ -1,23 +1,25 @@
 /*
  * MODIFIED SCANNER CODE (ESP32-A)
  * This code reads an RFID card and publishes its UID to the
- * 'RFID_SCAN' topic. It REPLACES your http-based 'main.cpp'.
+ * 'RFID_SCAN' topic.
  */
 
 #include <Arduino.h>
 #include <SPI.h>
-#include <MFRC522.h>
+#include <MFRC522.h>   // Library for the RFID scanner
 #include <Wifi.h>
 #include <WiFiMulti.h>
-#include <PubSubClient.h> // <-- Library for MQTT
+#include <PubSubClient.h> // Library for MQTT
 
 // --- Hardware Pins ---
-#define SS_PIN 5     // Slave Select (SS) pin
-#define RST_PIN 0    // Reset (RST) pin
+#define SS_PIN 5  // Slave Select (SS) pin
+#define RST_PIN 0 // Reset (RST) pin
 
 // --- Network Config ---
-const char* mqtt_server = "YOUR_MQTT_BROKER_IP"; // <-- IMPORTANT: Set this
-const char* mqtt_topic_scan = "RFID_SCAN";         // <-- Topic to send scans to
+// IMPORTANT: Set this to your computer's IP address
+const char* mqtt_server = "10.56.202.215"; 
+// The topic we send the UID to
+const char* mqtt_topic_scan = "RFID_SCAN";        
 
 // --- Instances ---
 MFRC522 rfid(SS_PIN, RST_PIN);
@@ -29,7 +31,6 @@ PubSubClient mqttClient(espClient);
 void setupWiFi() {
   wifiMulti.addAP("MORPHEUS", "KirbyEstandarte4724");
   // Add any other WiFi networks here
-  // wifiMulti.addAP("STUDENT_CONNECT", "IloveUSTP!");
 
   Serial.println("Connecting to WiFi...");
   while (wifiMulti.run() != WL_CONNECTED) {
@@ -41,6 +42,7 @@ void setupWiFi() {
 }
 
 // --- MQTT Reconnect ---
+// This function tries to reconnect if it gets disconnected
 void reconnectMQTT() {
   while (!mqttClient.connected()) {
     Serial.print("Attempting MQTT connection...");
@@ -61,25 +63,27 @@ void setup() {
   SPI.begin(18, 19, 23); // Your SPI pins
   rfid.PCD_Init();
 
-  setupWiFi();
-  mqttClient.setServer(mqtt_server, 1883);
+  setupWiFi(); // Connect to WiFi
+  mqttClient.setServer(mqtt_server, 1883); // Tell MQTT who the broker is
 
   Serial.println("Scanner ready. Waiting for an RFID card.");
 }
 
 // --- Main Loop ---
 void loop() {
+  // Make sure we are connected to the broker
   if (!mqttClient.connected()) {
     reconnectMQTT();
   }
-  mqttClient.loop();
+  mqttClient.loop(); // Handle MQTT messages
 
-  // Look for new card
+  // Look for a new card
   if (!rfid.PICC_IsNewCardPresent() || !rfid.PICC_ReadCardSerial()) {
     delay(50);
-    return;
+    return; // No card, so restart the loop
   }
 
+  // --- Card is found ---
   Serial.print("Card detected! UID: ");
   String rfidData = "";
   for (byte i = 0; i < rfid.uid.size; i++) {
@@ -89,7 +93,7 @@ void loop() {
   rfidData.toUpperCase();
   Serial.println(rfidData);
 
-  // Publish the UID to the MQTT topic
+  // Send the card's UID to our backend via the broker
   Serial.print("Publishing to topic 'RFID_SCAN': ");
   Serial.println(rfidData);
   mqttClient.publish(mqtt_topic_scan, rfidData.c_str());

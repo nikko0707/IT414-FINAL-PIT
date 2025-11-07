@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import io from 'socket.io-client'; // <-- CHANGED: Import the socket library
 
 // --- CHANGED: This now points to your Node.js backend ---
-const API_URL = 'http://localhost:3001'; 
+const API_URL = 'http://localhost:3000'; 
 const socket = io(API_URL); // <-- CHANGED: Connect to the socket server
 
 function App() {

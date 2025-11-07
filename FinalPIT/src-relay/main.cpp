@@ -1,28 +1,33 @@
 /*
  * RELAY CONTROLLER CODE (ESP32-B)
- * This code connects to WiFi and subscribes to the 'RFID_LOGIN'
- * topic. It controls a relay connected to an LED.
+ * This code subscribes to the 'RFID_LOGIN' topic and
+ * controls the relay/LED based on "1" or "0" messages.
  */
 
 #include <Arduino.h>
 #include <Wifi.h>
 #include <WiFiMulti.h>
-#include <PubSubClient.h>
+#include <PubSubClient.h> // Library for MQTT
 
 // --- Hardware Pins ---
-// The pin connected to your relay's 'IN' pin [cite: 58]
+// The pin your relay's 'IN' wire is connected to
+// This must match your physical wiring [cite: 58]
 #define RELAY_PIN 23 // <-- IMPORTANT: Change this if you use a different pin
 
 // --- Network Config ---
-const char* mqtt_server = "YOUR_MQTT_BROKER_IP"; // <-- IMPORTANT: Set this
-const char* mqtt_topic_login = "RFID_LOGIN";     // <-- Topic to listen to [cite: 49]
+// IMPORTANT: Set this to your computer's IP address
+const char* mqtt_server = "10.56.202.215"; 
+// The topic we LISTEN to for the '1' or '0'
+const char* mqtt_topic_login = "RFID_LOGIN";     
 
 // --- Instances ---
 WiFiMulti wifiMulti;
 WiFiClient espClient;
 PubSubClient mqttClient(espClient);
 
-// --- This function runs when an MQTT message arrives ---
+// --- MQTT Callback Function ---
+// This function runs automatically every time a message arrives
+// on a topic we are subscribed to.
 void mqttCallback(char* topic, byte* payload, unsigned int length) {
   Serial.print("Message arrived on topic: ");
   Serial.print(topic);
@@ -33,13 +38,14 @@ void mqttCallback(char* topic, byte* payload, unsigned int length) {
   }
   Serial.println(message);
 
-  // Control the relay
+  // This is the main logic for this device
+  // Check if the message is "1" or "0" [cite: 65, 66]
   if (message == "1") {
     Serial.println("Setting relay PIN HIGH (LED ON)");
-    digitalWrite(RELAY_PIN, HIGH); // [cite: 65]
+    digitalWrite(RELAY_PIN, HIGH); // Turn on the LED [cite: 65]
   } else if (message == "0") {
     Serial.println("Setting relay PIN LOW (LED OFF)");
-    digitalWrite(RELAY_PIN, LOW); // [cite: 66]
+    digitalWrite(RELAY_PIN, LOW); // Turn off the LED [cite: 66]
   }
 }
 
@@ -63,9 +69,11 @@ void reconnectMQTT() {
     Serial.print("Attempting MQTT connection...");
     if (mqttClient.connect("ESP32_Relay_Client")) { // Unique ID
       Serial.println("connected");
-      // Subscribe to the correct topic
+      
+      // Tell the broker we want messages from this topic
       mqttClient.subscribe(mqtt_topic_login);
       Serial.println("Subscribed to topic: " + String(mqtt_topic_login));
+      
     } else {
       Serial.print("failed, rc=");
       Serial.print(mqttClient.state());
@@ -78,18 +86,23 @@ void reconnectMQTT() {
 // --- Main Setup ---
 void setup() {
   Serial.begin(115200);
+  // Set the relay pin as an output
   pinMode(RELAY_PIN, OUTPUT);
-  digitalWrite(RELAY_PIN, LOW); // Start with relay OFF
+  // Start with the relay (and LED) OFF
+  digitalWrite(RELAY_PIN, LOW); 
 
-  setupWiFi();
-  mqttClient.setServer(mqtt_server, 1883);
-  mqttClient.setCallback(mqttCallback); // Set the function to run on new messages
+  setupWiFi(); // Connect to WiFi
+  mqttClient.setServer(mqtt_server, 1883); // Tell MQTT who the broker is
+  // Tell the client which function to run when a message comes in
+  mqttClient.setCallback(mqttCallback); 
 }
 
 // --- Main Loop ---
 void loop() {
+  // Make sure we are connected
   if (!mqttClient.connected()) {
     reconnectMQTT();
   }
-  mqttClient.loop(); // This handles all MQTT communication
+  // This handles all MQTT communication (listening, etc.)
+  mqttClient.loop(); 
 }

@@ -18,10 +18,10 @@ const mqtt = require('mqtt');
 const mysql = require('mysql');
 
 // --- Configs ---
-const MQTT_BROKER = 'mqtt://YOUR_MQTT_BROKER_IP'; // <-- Set this
+const MQTT_BROKER = 'mqtt://10.56.202.215'; // <-- Set this
 const MQTT_TOPIC_SCAN = 'RFID_SCAN';
 const MQTT_TOPIC_LOGIN = 'RFID_LOGIN';
-const WEB_SERVER_PORT = 3001; // Your React app will talk to this port
+const WEB_SERVER_PORT = 3000; // Your React app will talk to this port
 
 const DB_CONFIG = {
   host: 'localhost',
