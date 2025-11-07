@@ -1,85 +1,90 @@
 import React, { useEffect, useState } from "react";
+import io from 'socket.io-client'; // <-- CHANGED: Import the socket library
 
-// The URL to your PHP files in XAMPP
-const API_URL = 'http://localhost/lab2'; // Or /lab2, whatever you named it
+// --- CHANGED: This now points to your Node.js backend ---
+const API_URL = 'http://localhost:3001'; 
+const socket = io(API_URL); // <-- CHANGED: Connect to the socket server
 
 function App() {
-  // --- STATE ---
-  // State for your 'rfid_reg' table
+  // --- STATE (Your code, unchanged) ---
   const [statusList, setStatusList] = useState([]);
-  // State for your 'rfid_logs' table
   const [logList, setLogList] = useState([]);
 
-  // --- DATA FETCHING ---
-
-  // Fetches the 'rfid_reg' table data
+  // --- DATA FETCHING (Your code, with changed URLs) ---
   const fetchStatus = () => {
-    fetch(`${API_URL}/get_status.php`)
+    fetch(`${API_URL}/api/status`) // <-- CHANGED: New URL
       .then(res => res.json())
       .then(data => setStatusList(data))
       .catch(error => console.error("Error fetching status:", error));
   };
 
-  // Fetches the 'rfid_logs' table data
   const fetchLogs = () => {
-    fetch(`${API_URL}/get_logs.php`)
+    fetch(`${API_URL}/api/logs`) // <-- CHANGED: New URL
       .then(res => res.json())
       .then(data => setLogList(data))
       .catch(error => console.error("Error fetching logs:", error));
   };
 
-  // --- INITIAL LOAD ---
-  // Runs once when the page loads
+  // --- INITIAL LOAD (Your code, unchanged) ---
   useEffect(() => {
     fetchStatus();
     fetchLogs();
   }, []);
 
-  // --- AUTO REFRESH ---
-  // This meets the project requirement 
+  // --- AUTO REFRESH (CHANGED: Now uses Sockets for real-time) ---
   useEffect(() => {
-    const interval = setInterval(() => {
-      console.log("Auto-refreshing data...");
-      fetchStatus();
-      fetchLogs();
-    }, 5000); // Refreshes every 5 seconds
-    return () => clearInterval(interval);
-  }, []);
+    console.log("Connecting to socket server...");
 
-  // --- ACTIONS ---
-  // This function sends data to your 'process_rfid.php'
-  // This is for your toggle button [cite: 15]
+    // This listens for 'new_log' events from your backend.js
+    socket.on('new_log', (newLog) => {
+      console.log("Socket: Received new_log", newLog);
+      // Adds the new log to the top of the list instantly
+      setLogList(currentLogs => [newLog, ...currentLogs]);
+    });
+
+    // This listens for 'status_update' events
+    socket.on('status_update', (update) => {
+      console.log("Socket: Received status_update", update);
+      // Finds and updates the item in the status list
+      setStatusList(currentList =>
+        currentList.map(item =>
+          item.rfid_data === update.rfid
+            ? { ...item, rfid_status: update.status }
+            : item
+        )
+      );
+    });
+
+    // Clean up the listeners
+    return () => {
+      socket.off('new_log');
+      socket.off('status_update');
+    };
+  }, []); // Empty array means this runs only once
+
+  // --- ACTIONS (CHANGED: Updated toggle function) ---
   const handleToggle = (rfid_data) => {
     console.log("Toggling:", rfid_data);
 
-    const body = new URLSearchParams();
-    body.append('rfid_data', rfid_data);
-
-    fetch(`${API_URL}/process_rfid.php`, {
+    // This now sends the request to your Node.js API
+    fetch(`${API_URL}/api/toggle/${rfid_data}`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/x-www-form-urlencoded',
-      },
-      body: body,
     })
-      .then(res => res.text())
+      .then(res => res.json())
       .then(response => {
         console.log("Server Response:", response);
-        // After toggling, instantly refresh the data on screen
-        fetchStatus();
-        fetchLogs();
+        // We don't need to refresh here!
+        // The socket will send the update automatically.
       })
       .catch(error => console.error("Error toggling:", error));
   };
 
-  // --- RENDER ---
+  // --- RENDER (Your code, 100% unchanged) ---
   return (
     <div className="min-h-screen bg-gray-50 text-gray-900">
-      {/* Navbar (Your code) */}
+      {/* Navbar */}
       <nav className="bg-blue-600 text-white px-6 py-5 flex justify-between items-center shadow">
-
         <h1 className="text-4xl font-extrabold tracking-wide">BSIT 413</h1>
-
         <button
           onClick={() => {
             fetchStatus();
@@ -121,7 +126,6 @@ function App() {
                       )}
                     </td>
                     <td className="py-3 px-4 text-center">
-                      {/* Your Toggle Switch UI */}
                       <label className="relative inline-flex items-center cursor-pointer">
                         <input
                           type="checkbox"
@@ -165,17 +169,16 @@ function App() {
                         <span className="text-red-600">Logged Out/Failed</span>
                       )}
                     </td>
-                   <td className="py-3 px-4">
-  {new Date(log.time_log).toLocaleString('en-US', {
-    month: 'long',
-    day: 'numeric',
-    year: 'numeric',
-    hour: 'numeric',
-    minute: '2-digit',
-    hour12: true,
-  })}
-</td>
-
+                    <td className="py-3 px-4">
+                      {new Date(log.time_log).toLocaleString('en-US', {
+                        month: 'long',
+                        day: 'numeric',
+                        year: 'numeric',
+                        hour: 'numeric',
+                        minute: '2-digit',
+                        hour12: true,
+                      })}
+                    </td>
                   </tr>
                 ))}
               </tbody>
