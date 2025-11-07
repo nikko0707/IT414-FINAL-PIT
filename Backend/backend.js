@@ -18,7 +18,7 @@ const mqtt = require('mqtt');
 const mysql = require('mysql');
 
 // --- Configs ---
-const MQTT_BROKER = 'mqtt://192.168.1.106'; // Morpheus 10.56.202.215 || Estandarte-Ext 192.168.1.106
+const MQTT_BROKER = 'mqtt://10.71.207.215'; // Morpheus 10.71.207.215 || Estandarte-Ext 192.168.1.106
 const MQTT_TOPIC_SCAN = 'RFID_SCAN';
 const MQTT_TOPIC_LOGIN = 'RFID_LOGIN';
 const WEB_SERVER_PORT = 3001; // Your React app will talk to this port
@@ -105,10 +105,10 @@ function processRfidData(rfid_data) {
         if (err) return console.error('DB query error:', err);
         const reg_count = count_results[0].reg_count;
 
-        // ++++++++++ THIS IS YOUR NEW LOGIC ++++++++++
+        
         // This will register a card if the count is 0, 1, or 2.
         if (reg_count < 3) { // Your logic to allow 3 IDs
-        // ++++++++++++++++++++++++++++++++++++++++++++
+        
 
           const new_status = 1;
           db.query("INSERT INTO rfid_reg (rfid_data, rfid_status) VALUES (?, ?)", [rfid_data, new_status]);
@@ -126,7 +126,7 @@ function processRfidData(rfid_data) {
           // Now that 3 cards are registered, log all others as failed
           // +++++ THIS IS YOUR NEW CHANGE +++++
           logScan(rfid_data, 2, (newLog) => io.emit('new_log', newLog)); // Log as status 2 (Not Found)
-          // +++++++++++++++++++++++++++++++++++
+          
           signal_to_publish = '0';
           console.log(`RFID ${rfid_data} NOT FOUND. Max (3) IDs registered. Publishing: ${signal_to_publish}`);
         }
