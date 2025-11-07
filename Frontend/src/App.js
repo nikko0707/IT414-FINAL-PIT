@@ -1,10 +1,8 @@
 import React, { useEffect, useState, useCallback } from "react";
-import io from 'socket.io-client'; // Import socket.io
+import io from 'socket.io-client';
 
-// --- NEW CONFIG ---
-// The URL of your new Node.js backend
+// --- CONFIG ---
 const API_URL = 'http://localhost:3001';
-// Connect to the Socket.io server
 const socket = io(API_URL);
 
 function App() {
@@ -13,54 +11,48 @@ function App() {
   const [logList, setLogList] = useState([]);
 
   // --- DATA FETCHING ---
-  
-  // +++++ THIS FUNCTION IS NOW SAFER +++++
   const fetchStatus = useCallback(() => {
-    fetch(`${API_URL}/api/status`) // Fetch from Node.js
+    fetch(`${API_URL}/api/status`)
       .then(res => res.json())
       .then(data => {
         if (Array.isArray(data)) {
-          setStatusList(data); // Only set if data is an array
+          setStatusList(data);
         } else {
           console.error("Error: /api/status did not return an array:", data);
-          setStatusList([]); // Set to empty array to prevent crash
+          setStatusList([]);
         }
       })
       .catch(error => {
-         console.error("Error fetching status:", error);
-         setStatusList([]); // Set to empty array on fetch error
+        console.error("Error fetching status:", error);
+        setStatusList([]);
       });
   }, []);
 
-  // +++++ THIS FUNCTION IS NOW SAFER +++++
   const fetchLogs = useCallback(() => {
-    fetch(`${API_URL}/api/logs`) // Fetch from Node.js
+    fetch(`${API_URL}/api/logs`)
       .then(res => res.json())
       .then(data => {
         if (Array.isArray(data)) {
-          setLogList(data); // Only set if data is an array
+          setLogList(data);
         } else {
           console.error("Error: /api/logs did not return an array:", data);
-          setLogList([]); // Set to empty array to prevent crash
+          setLogList([]);
         }
       })
       .catch(error => {
         console.error("Error fetching logs:", error);
-        setLogList([]); // Set to empty array on fetch error
+        setLogList([]);
       });
   }, []);
 
   // --- INITIAL LOAD ---
   useEffect(() => {
-    // Fetch initial data when page loads
     fetchStatus();
     fetchLogs();
-  }, [fetchStatus, fetchLogs]); // Add dependencies
+  }, [fetchStatus, fetchLogs]);
 
-  // --- REAL-TIME REFRESH (Two Methods) ---
+  // --- REAL-TIME REFRESH ---
   useEffect(() => {
-    
-    // METHOD 1: Socket.io (Instant updates for scans/toggles)
     console.log("Setting up socket listeners...");
 
     socket.on('new_log', (newLog) => {
@@ -84,25 +76,22 @@ function App() {
       setStatusList(currentList => [...currentList, newItem]);
     });
 
-    // METHOD 2: Polling (Catches external DB changes, like from instructor)
-    // This meets your new requirement.
     console.log("Setting up 5-second polling for external DB changes...");
     const interval = setInterval(() => {
       console.log("Polling database for external changes...");
       fetchStatus();
       fetchLogs();
-    }, 5000); // Polls every 5 seconds
+    }, 5000);
 
-    // Clean up all listeners
     return () => {
       socket.off('new_log');
       socket.off('status_update');
       socket.off('new_status_item');
       clearInterval(interval);
     };
-  }, [fetchStatus, fetchLogs]); // Add dependencies
+  }, [fetchStatus, fetchLogs]);
 
-  // --- ACTIONS (Toggle) ---
+  // --- ACTIONS ---
   const handleToggle = (rfid_data) => {
     console.log("Toggling:", rfid_data);
 
@@ -114,36 +103,37 @@ function App() {
       .catch(error => console.error("Error toggling:", error));
   };
 
-  // --- RENDER (Your exact UI, unchanged) ---
+  // --- RENDER ---
   return (
     <div className="min-h-screen bg-gray-50 text-gray-900 font-sans">
       {/* Navbar */}
       <nav className="bg-blue-600 text-white px-6 py-5 flex justify-between items-center shadow-md">
         <h1 className="text-4xl font-extrabold tracking-wide">BSIT IT413</h1>
-        {/* REFRESH BUTTON REMOVED AS REQUESTED */}
+        {/* Refresh Button Removed */}
       </nav>
 
       {/* Main Container */}
       <main className="max-w-7xl mx-auto p-4 md:p-6 grid grid-cols-1 lg:grid-cols-2 gap-6 md:gap-8">
         
-        {/* --- RFID STATUS TABLE --- */}
+        {/* --- REGISTERED RFID TABLE --- */}
         <div>
           <h2 className="text-2xl font-bold mb-4 text-gray-800">Registered RFID</h2>
           <div className="overflow-x-auto bg-white rounded-lg shadow-lg">
             <table className="w-full border-collapse text-sm">
               <thead className="bg-gray-100 text-gray-700 uppercase text-xs">
                 <tr>
+                  <th className="py-3 px-4 text-left"></th>
                   <th className="py-3 px-4 text-left">RFID</th>
                   <th className="py-3 px-4 text-left">Status</th>
                   <th className="py-3 px-4 text-center">Toggle</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200">
-                {statusList.map((item) => (
+                {statusList.map((item, index) => (
                   <tr key={item.id} className="hover:bg-gray-50">
+                    <td className="py-3 px-4 text-gray-700 font-semibold text-center">{index + 1}</td>
                     <td className="py-3 px-4 font-mono text-gray-700">{item.rfid_data}</td>
                     <td className="py-3 px-4">
-                      {/* This just indicates status as requested */}
                       {item.rfid_status === 1 ? (
                         <span className="text-green-600 font-medium">Active (1)</span>
                       ) : (
@@ -175,17 +165,18 @@ function App() {
             <table className="w-full border-collapse text-sm">
               <thead className="bg-gray-100 text-gray-700 uppercase text-xs sticky top-0">
                 <tr>
+                  <th className="py-3 px-4 text-left"></th>
                   <th className="py-3 px-4 text-left">RFID</th>
                   <th className="py-3 px-4 text-left">Status</th>
                   <th className="py-3 px-4 text-left">Date & Time</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200">
-                {logList.map((log) => (
+                {logList.map((log, index) => (
                   <tr key={log.id} className="hover:bg-gray-50">
+                    <td className="py-3 px-4 text-gray-700 font-semibold text-center">{index + 1}</td>
                     <td className="py-3 px-4 font-mono text-gray-700">{log.rfid_data}</td>
                     <td className="py-3 px-4">
-                      {/* +++++ THIS IS YOUR NEW LOGIC +++++ */}
                       {log.rfid_status === 1 ? (
                         <span className="text-green-600 font-medium">Logged In</span>
                       ) : log.rfid_status === 0 ? (
@@ -193,7 +184,6 @@ function App() {
                       ) : (
                         <span className="text-yellow-600 font-medium">RFID Not Found</span>
                       )}
-                      {/* ++++++++++++++++++++++++++++++++++ */}
                     </td>
                     <td className="py-3 px-4 text-gray-600">
                       {new Date(log.time_log).toLocaleString('en-US', {
@@ -208,6 +198,7 @@ function App() {
                   </tr>
                 ))}
               </tbody>
+
             </table>
           </div>
         </div>
