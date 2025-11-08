@@ -11,6 +11,4 @@ root.render(
   </React.StrictMode>
 );
 
-// This line is the key to meeting the "offline-capable framework" rubric.
-// It turns your app into a Progressive Web App (PWA).
 serviceWorkerRegistration.register();

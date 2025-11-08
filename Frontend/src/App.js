@@ -1,38 +1,35 @@
 import React, { useEffect, useState, useCallback } from "react";
-import io from 'socket.io-client'; // Import socket.io
+import io from 'socket.io-client';
 
-// --- NEW CONFIG ---
-// The URL of your new Node.js backend
+//url sa backend
 const API_URL = 'http://localhost:3001';
-// Connect to the Socket.io server
+//Socket.io server
 const socket = io(API_URL);
 
 function App() {
-  // --- STATE ---
   const [statusList, setStatusList] = useState([]);
   const [logList, setLogList] = useState([]);
 
-  // --- DATA FETCHING ---
-  // We use useCallback to prevent these functions from causing re-renders
+  //fetching data
   const fetchStatus = useCallback(() => {
-    fetch(`${API_URL}/api/status`) // Fetch from Node.js
+    fetch(`${API_URL}/api/status`)
       .then(res => res.json())
       .then(data => {
         if (Array.isArray(data)) {
-          setStatusList(data); // Only set if data is an array
+          setStatusList(data);
         } else {
           console.error("Error: /api/status did not return an array:", data);
-          setStatusList([]); // Set to empty array to prevent crash
+          setStatusList([]);
         }
       })
       .catch(error => {
          console.error("Error fetching status:", error);
-         setStatusList([]); // Set to empty array on fetch error
+         setStatusList([]); //empty array tofetch error
       });
   }, []);
 
   const fetchLogs = useCallback(() => {
-    fetch(`${API_URL}/api/logs`) // Fetch from Node.js
+    fetch(`${API_URL}/api/logs`) // fetch from Node.js
       .then(res => res.json())
       .then(data => {
         if (Array.isArray(data)) {
@@ -44,21 +41,21 @@ function App() {
       })
       .catch(error => {
         console.error("Error fetching logs:", error);
-        setLogList([]); // Set to empty array on fetch error
+        setLogList([]);
       });
   }, []);
 
-  // --- INITIAL LOAD ---
+  //loading data
   useEffect(() => {
-    // Fetch initial data when page loads
+    // Fetch initial data
     fetchStatus();
     fetchLogs();
-  }, [fetchStatus, fetchLogs]); // Add dependencies
+  }, [fetchStatus, fetchLogs]);
 
-  // --- REAL-TIME REFRESH (Two Methods) ---
+  //real-time refresh updates
   useEffect(() => {
     
-    // METHOD 1: Socket.io (Instant updates for scans/toggles)
+    //socket.io
     console.log("Setting up socket listeners...");
 
     socket.on('new_log', (newLog) => {
@@ -81,26 +78,23 @@ function App() {
       console.log('Socket: Received new_status_item', newItem);
       setStatusList(currentList => [...currentList, newItem]);
     });
-
-    // METHOD 2: Polling (Catches external DB changes, like from instructor)
-    // This meets your new requirement.
+    // polling
     console.log("Setting up 5-second polling for external DB changes...");
     const interval = setInterval(() => {
       console.log("Polling database for external changes...");
       fetchStatus();
       fetchLogs();
-    }, 5000); // Polls every 5 seconds
+    }, 5000); 
 
-    // Clean up all listeners
     return () => {
       socket.off('new_log');
       socket.off('status_update');
       socket.off('new_status_item');
       clearInterval(interval);
     };
-  }, [fetchStatus, fetchLogs]); // Add dependencies
+  }, [fetchStatus, fetchLogs]);
 
-  // --- ACTIONS (Toggle) ---
+  //toggle 
   const handleToggle = (rfid_data) => {
     console.log("Toggling:", rfid_data);
 
@@ -112,19 +106,19 @@ function App() {
       .catch(error => console.error("Error toggling:", error));
   };
 
-  // --- RENDER (Your exact UI, unchanged) ---
+  // wender owo
   return (
     <div className="min-h-screen bg-gray-50 text-gray-900 font-sans">
       {/* Navbar */}
       <nav className="bg-blue-600 text-white px-6 py-5 flex justify-between items-center shadow-md">
         <h1 className="text-4xl font-extrabold tracking-wide">BSIT 413</h1>
-        {/* REFRESH BUTTON REMOVED AS REQUESTED */}
+        
       </nav>
 
-      {/* Main Container */}
+      {/*container*/}
       <main className="max-w-7xl mx-auto p-4 md:p-6 grid grid-cols-1 lg:grid-cols-2 gap-6 md:gap-8">
         
-        {/* --- RFID STATUS TABLE --- */}
+        {/*table sa rfid_reg*/}
         <div>
           <h2 className="text-2xl font-bold mb-4 text-gray-800">RFID Status</h2>
           <div className="overflow-x-auto bg-white rounded-lg shadow-lg">
@@ -141,7 +135,7 @@ function App() {
                   <tr key={item.rfid_data} className="hover:bg-gray-50">
                     <td className="py-3 px-4 font-mono text-gray-700">{item.rfid_data}</td>
                     <td className="py-3 px-4">
-                      {/* This just indicates status as requested */}
+                      
                       {item.rfid_status === 1 ? (
                         <span className="text-green-600 font-medium">Active (1)</span>
                       ) : (
@@ -166,7 +160,7 @@ function App() {
           </div>
         </div>
 
-        {/* --- RFID LOGS TABLE --- */}
+        {/* table sa rfid_logs*/}
         <div>
           <h2 className="text-2xl font-bold mb-4 text-gray-800">RFID Logs</h2>
           <div className="overflow-x-auto bg-white rounded-lg shadow-lg max-h-96 overflow-y-auto">
@@ -183,7 +177,7 @@ function App() {
                   <tr key={log.id} className="hover:bg-gray-50">
                     <td className="py-3 px-4 font-mono text-gray-700">{log.rfid_data}</td>
                     <td className="py-3 px-4">
-                      {/* +++++ THIS IS YOUR NEW LOGIC +++++ */}
+                      
                       {log.rfid_status === 1 ? (
                         <span className="text-green-600 font-medium">Logged In</span>
                       ) : log.rfid_status === 0 ? (
@@ -191,7 +185,7 @@ function App() {
                       ) : (
                         <span className="text-yellow-600 font-medium">RFID Not Found</span>
                       )}
-                      {/* ++++++++++++++++++++++++++++++++++ */}
+                      
                     </td>
                     <td className="py-3 px-4 text-gray-600">
                       {new Date(log.time_log).toLocaleString('en-US', {
