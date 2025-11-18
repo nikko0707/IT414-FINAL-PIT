@@ -111,7 +111,7 @@ function App() {
     <div className="min-h-screen bg-gray-50 text-gray-900 font-sans">
       {/* Navbar */}
       <nav className="bg-blue-600 text-white px-6 py-5 flex justify-between items-center shadow-md">
-        <h1 className="text-4xl font-extrabold tracking-wide">BSIT 413</h1>
+        <h1 className="text-4xl font-extrabold tracking-wide">BLOCK 30</h1>
         
       </nav>
 

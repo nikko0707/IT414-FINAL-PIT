@@ -13,7 +13,7 @@ const mqtt = require('mqtt');
 const mysql = require('mysql');
 
 //specific configurations
-const MQTT_BROKER = 'mqtt://10.71.207.215'; //IP Address
+const MQTT_BROKER = 'mqtt://192.168.1.102'; //IP Address
 const MQTT_TOPIC_SCAN = 'RFID_SCAN'; //makita sa mqttx if na scan ba gid imo rfid card
 const MQTT_TOPIC_LOGIN = 'RFID_LOGIN'; //1 or 0 
 const WEB_SERVER_PORT = 3001; //port for web server
