@@ -202,13 +202,13 @@ function processRfidData(rfid_data) {
       }
 
       //rfid_reg > 3 dili na iregister, log as NOT FOUND and publish 0
-      logScan(rfid_data, 2, (newLog) => {
-        if (newLog) io.emit('new_log', newLog);
-      });
-
-      const signal_to_publish = '0';
-      console.log(`RFID ${rfid_data} NOT FOUND. Max (3) IDs registered. Publishing: ${signal_to_publish}`);
-      publishResult(signal_to_publish);
+      logScan(rfid_data, 2, (newLog) => io.emit('new_log', newLog)); 
+          
+          // SEND "2" TO MQTT para di sya malibog pag scan ang relay saiya ligh output
+          signal_to_publish = '2'; 
+          
+          console.log(`RFID ${rfid_data} NOT FOUND. Max (3) IDs registered. Publishing: ${signal_to_publish}`);
+          publishResult(signal_to_publish);
     });
   });
 }
