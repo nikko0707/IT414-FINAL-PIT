@@ -2,9 +2,9 @@
 #include <PubSubClient.h>
 
 // --- WiFi and MQTT settings ---
-const char* ssid = "Estandarte-Ext";
-const char* password = "12345678910";
-const char* mqtt_server = "192.168.1.102";
+const char* ssid = "You never know";
+const char* password = "123456789";
+const char* mqtt_server = "10.71.161.98";
 const char* topic_subscribe = "RFID_LOGIN";
 
 // --- Designated pin ---
