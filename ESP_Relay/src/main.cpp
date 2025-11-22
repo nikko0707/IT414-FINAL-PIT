@@ -6,7 +6,7 @@ const char* ssid = "You never know";
 const char* password = "123456789";
 const char* mqtt_server = "10.71.161.98";
 const char* topic_subscribe = "RFID_LOGIN";
-
+//wifiMulti.addAP("Cloud Control Network", "ccv7network");
 // --- Designated pin ---
 #define RELAY_PIN 21  // Change this to your pin
 
