@@ -1,55 +1,74 @@
 #include <WiFi.h>
+#include <WiFiMulti.h>
 #include <PubSubClient.h>
 
-// --- WiFi and MQTT settings ---
-const char* ssid = "You never know";
-const char* password = "123456789";
-const char* mqtt_server = "10.71.161.98";
+
+WiFiMulti wifiMulti;
+
+const char* mqtt_server = "192.168.1.101";
 const char* topic_subscribe = "RFID_LOGIN";
-//wifiMulti.addAP("Cloud Control Network", "ccv7network");
-// --- Designated pin ---
-#define RELAY_PIN 21  // Change this to your pin
+
+
+#define RELAY_PIN 21
 
 WiFiClient espClient;
 PubSubClient client(espClient);
 
-// --- Track last reconnect attempt ---
 unsigned long lastReconnectAttempt = 0;
 
-// --- MQTT message callback ---
+
 void callback(char* topic, byte* message, unsigned int length) {
   String msg;
   for (int i = 0; i < length; i++) {
     msg += (char)message[i];
   }
 
-  msg.trim();  // Remove whitespace
+  msg.trim();
+
   Serial.print("Received message: ");
   Serial.println(msg);
 
-  // Only act on "1" or "0"
   if (msg == "1") {
-    digitalWrite(RELAY_PIN, HIGH);  // ON
+    digitalWrite(RELAY_PIN, HIGH);
     Serial.println("Relay ON");
   } 
   else if (msg == "0") {
-    digitalWrite(RELAY_PIN, LOW);   // OFF
+    digitalWrite(RELAY_PIN, LOW);
     Serial.println("Relay OFF");
   } 
   else {
-    Serial.println("Message ignored (no action)");
+    Serial.println("Message ignored");
   }
 }
 
+
+void setupWiFi() {
+  // Add all access points you want:
+  wifiMulti.addAP("Estandarte-Ext", "12345678910");
+  //wifiMulti.addAP("Cloud Control Network", "ccv7network");
+  //wifiMulti.addAP("You never know", "123456789");
+  //wifiMulti.addAP("MORPHEUS", "KirbyEstandarte4724");
+
+  Serial.println("Connecting to WiFi...");
+  while (wifiMulti.run() != WL_CONNECTED) {
+    Serial.print(".");
+    delay(1000);
+  }
+
+  Serial.println("\nWiFi connected!");
+  Serial.print("IP Address: ");
+  Serial.println(WiFi.localIP());
+}
+
+
 void reconnect() {
-  // Limit reconnect attempts to every 5 seconds
   if (millis() - lastReconnectAttempt < 5000) return;
   lastReconnectAttempt = millis();
 
   Serial.print("Attempting MQTT connection...");
 
-  if (client.connect("ESP32_RELAY")) {
-    Serial.println("connected");
+  if (client.connect("ESP32_RELAY_CLIENT")) {
+    Serial.println("connected!");
     client.subscribe(topic_subscribe);
     Serial.print("Subscribed to topic: ");
     Serial.println(topic_subscribe);
@@ -59,31 +78,29 @@ void reconnect() {
   }
 }
 
+
 void setup() {
   Serial.begin(115200);
 
-  // Initialize pin
   pinMode(RELAY_PIN, OUTPUT);
-  digitalWrite(RELAY_PIN, LOW); // Start OFF
+  digitalWrite(RELAY_PIN, LOW);  // Start OFF
 
-  // Connect to WiFi
-  Serial.print("Connecting to WiFi...");
-  WiFi.begin(ssid, password);
-  while (WiFi.status() != WL_CONNECTED) {
-    delay(500);
-    Serial.print(".");
-  }
-  Serial.println("\nConnected to WiFi!");
-  Serial.print("IP Address: ");
-  Serial.println(WiFi.localIP());
+  setupWiFi();  
 
-  // Setup MQTT
   client.setServer(mqtt_server, 1883);
   client.setCallback(callback);
+
+  lastReconnectAttempt = 0;
 }
 
+
 void loop() {
-  // Reconnect if needed
+  // Reconnect WiFi if disconnected
+  if (wifiMulti.run() != WL_CONNECTED) {
+    Serial.println("WiFi lost... reconnecting...");
+  }
+
+  // Reconnect MQTT if disconnected
   if (!client.connected()) {
     reconnect();
   } else {

@@ -9,7 +9,7 @@ const mysql = require('mysql');
 // --- CONFIGURATION ---
 // IMPORTANT: Use your computer's LOCAL IP address here.
 // 'localhost' will NOT work for devices connecting from outside.
-const MQTT_BROKER = 'mqtt://10.71.161.98'; 
+const MQTT_BROKER = 'mqtt://192.168.1.101'; 
 const MQTT_TOPIC_SCAN = 'RFID_SCAN';
 const MQTT_TOPIC_LOGIN = 'RFID_LOGIN';
 const WEB_SERVER_PORT = 3001;

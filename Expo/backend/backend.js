@@ -3,7 +3,7 @@ import io from "socket.io-client";
 import axios from "axios";
 
 // Use your laptop IP
-const SERVER_IP = "http://10.71.161.98:3001";
+const SERVER_IP = "http://10.10.10.44:3001";
 
 export const socket = io(SERVER_IP, {
   transports: ["websocket"],
